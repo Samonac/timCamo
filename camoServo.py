@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
 import time
+import datetime
 
 # duty cycle, calibrate if needed
 MIN_DUTY = 2.9
@@ -8,6 +9,7 @@ MAX_DUTY = 97.1
  # 32 = Right // 33 = Left
 servo_signal_pin_R = 32
 servo_signal_pin_L = 33
+light_pin = 12
     
 # GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
 # Set up pin 11 for PWM
@@ -15,13 +17,21 @@ servo_signal_pin_L = 33
 GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
 GPIO.setup(servo_signal_pin_R,GPIO.OUT)  # Sets up pin 32 to an output (instead of an input)
 GPIO.setup(servo_signal_pin_L,GPIO.OUT)  # Sets up pin 33 to an output (instead of an input)
+
 p_32 = GPIO.PWM(servo_signal_pin_R, 50)     # Sets up pin 32 as a PWM pin
 p_33 = GPIO.PWM(servo_signal_pin_L, 50)     # Sets up pin 33 as a PWM pin
 
+# Light setup
+# light_pwn=''  # Temporary ; creates flashing apparently
+GPIO.setup(light_pin,GPIO.OUT)  # Sets up light pin 12 to an output (instead of an input)
+light_pwn=GPIO.PWM(light_pin, 50)
+      
 # Max degrees
 MIN_DEGREE = 7
 MAX_DEGREE = 15
 
+# Max Light (overheats!)
+MAX_LIGHT = 50
 
 pastDeg1 = MAX_DEGREE # = 32 = RIGHT
 pastDeg2 = MIN_DEGREE # = 33 = LEFT
@@ -41,12 +51,20 @@ GPIO.setwarnings(True)
 GPIO.setmode(GPIO.BOARD)
 
 
+def clearLight():
+    global light_pwn
+    light_pwn.start(100) 
+    light_pwn.ChangeDutyCycle(100)
+    light_pwn.stop()
+
 def jiggleServo():
     print('jiggleServo with dutyCycle32 : ', dutyCycle32, ' and dutyCycle33 : ', dutyCycle33)
         
     global p_32
     global p_33
     
+    p_32.start(0)               # Starts running PWM on the pin and sets it to 0
+    p_33.start(0)               # Starts running PWM on the pin and sets it to 0
     time.sleep(0.1)
     p_33.ChangeDutyCycle(dutyCycle33)
     time.sleep(0.1)
@@ -63,6 +81,8 @@ def jiggleServo():
     time.sleep(0.1)
     p_32.ChangeDutyCycle(dutyCycle32)
     time.sleep(0.3)
+    #p_32.stop()               # Starts running PWM on the pin and sets it to 0
+    #p_33.stop()               # Starts running PWM on the pin and sets it to 0
     
 
 
@@ -178,20 +198,24 @@ def moveServo(start=True, servoList = [], minAngleInput = MIN_DEGREE, maxAngleIn
 
     
 
-def moveServoThread(VIDEO_DURATION=15):
+def moveServoThread(VIDEO_DURATION=10):
     p_32.start(0)               # Starts running PWM on the pin and sets it to 0
     p_33.start(0)               # Starts running PWM on the pin and sets it to 0
-    time.sleep(0.1)
+    # changeLight(33, start=True, stop=False, sleepTime=0.5)
+    #time.sleep(0.1)
     #print('   Sleeping 1s then jiggling servos')
     #jiggleServo()
     #print('   Sleeping 1s then starting for real')
     #time.sleep(1)
     
+    
+    changeLight(0, start=True, stop=True, sleepTime=0.5) 
     print('Start opening')
     moveServo(start=True, servoList = ['L'], minAngleInput = MIN_DEGREE, maxAngleInput = 10)
     moveServo(start=True, servoList = ['L', 'R'], minAngleInput = MIN_DEGREE, maxAngleInput = MAX_DEGREE)
     print(' > Done !')
-    print('   Sleeping {}s before closing..'.format(VIDEO_DURATION))
+    print('  Video will be filming shortly ; Sleeping {}s before closing..'.format(VIDEO_DURATION))
+    changeLight(30, start=True, stop=True, sleepTime=0.5) 
     #p_32.stop()                   # At the end of the program, stop the PWM
     #p_33.stop()  
     
@@ -202,28 +226,94 @@ def moveServoThread(VIDEO_DURATION=15):
     #p_33.start(0)               # Starts running PWM on the pin and sets it to 0
     if VIDEO_DURATION > 8:
       time.sleep(VIDEO_DURATION-8)
+      print('Sleeping done!')
+      
+      #changeLight(50, start=False, stop=False, sleepTime=0.5)
+      #changeLight(33, start=False, stop=False, sleepTime=0.5)
+      
+      #changeLight(50, start=False, stop=False, sleepTime=0.5)
+      #changeLight(33, start=False, stop=False, sleepTime=0.5)
+      
+      #changeLight(50, start=False, stop=False, sleepTime=1)
+      #changeLight(33, start=False, stop=False, sleepTime=1)
+    
+      
+    changeLight(0, start=True, stop=False, sleepTime=0.5) 
     print('Start closing')
     moveServo(start=False, servoList = ['R'], minAngleInput = MIN_DEGREE, maxAngleInput = 10)
     moveServo(start=False, servoList = ['L', 'R'], minAngleInput = MIN_DEGREE, maxAngleInput = MAX_DEGREE)
     print(' > Done done !')
     time.sleep(0.1)
-    p_32.stop()                   # At the end of the program, stop the PWM
-    p_33.stop()  
+    clean()
     
     
 def clean():
     p_32.stop()                   # At the end of the program, stop the PWM
     p_33.stop()  
+    if light_pwn != '':
+      print('Light stopped in clean()')
+      light_pwn.stop()
     GPIO.cleanup()           # Resets the GPIO pins back to defaults
-    print('Goodnight !')
+    print('Cleaning done ! Goodnight !')
         
+        
+def changeLight(percent, start=False, stop=False, sleepTime=1):
+    global light_pwn
+    print('\n (!) In changeLight with percent : ', percent)
+    actualPercent = 100-percent
+    if actualPercent == 0:
+      actualPercent = 1
+    if actualPercent > MAX_LIGHT:
+      acutalPercent = MAX_LIGHT
+    print('ActualPercent : ', actualPercent)
+    if start:
+      print('Starting light')
+      #  These 2 lines below create flashing lights...
+      # GPIO.setup(light_pin,GPIO.OUT)  # Sets up light pin 12 to an output (instead of an input)
+      # light_pwn=GPIO.PWM(light_pin, 1)
+      
+      light_pwn.start(actualPercent) 
+      
+    light_pwn.ChangeDutyCycle(actualPercent)
+    print('Sleeping ', sleepTime)
+    time.sleep(sleepTime)
+    
+    if stop:
+      print('Stopping light')
+      # light_pwn.ChangeDutyCycle(100) # Equivalent to turning it off
+      if light_pwn != '':
+        light_pwn.stop()
+        print('Stopped')
+    print('Done with changeLight!\n')
+    
+    
+def blinkByHour(newSleepTime=1):
+    print('In blinkByHour for newSleepTime : ', newSleepTime)
+    currentHour = datetime.datetime.now().hour
+    if currentHour > 12:
+      currentHour = currentHour-12
+    print('Current hour is : ', currentHour)
+    
+    indexHour = 0
+    while indexHour < currentHour:
+      changeLight(100, start=True, stop=True, sleepTime=0.5)
+      changeLight(50, start=True, stop=True, sleepTime=0.5)
+      indexHour += 1
+    
+    changeLight(0, start=True, stop=False, sleepTime=0.5)  
+    # clean()
+
+changeLight(0, start=True, stop=False, sleepTime=0.5)  
 if __name__ == "__main__":
+
+    # changeLight(0, start=True, stop=False, sleepTime=0.5)  
     tempIndex = 0
     maxIndex = 1
     # maxIndex = 1
-    
+    #jiggleServo()
+    print('Done jiggling')
     #while tempIndex < maxIndex:
-    time.sleep(0.5)
+    time.sleep(1)
     print('attempt n ', tempIndex)
     print('Hello ! Starting main !')
     moveServoThread()
@@ -234,6 +324,4 @@ if __name__ == "__main__":
     #print('Done moving x2 ! ')
     
     #tempIndex += 1
-      
-    GPIO.cleanup()           # Resets the GPIO pins back to defaults
     print('Goodnight !')

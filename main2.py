@@ -10,11 +10,10 @@ import time
 import subprocess
 from pathlib import Path
 # Set up libraries and overall settings
-import RPi.GPIO as GPIO  # Imports the standard Raspberry Pi GPIO library
+#import RPi.GPIO as GPIO  # Imports the standard Raspberry Pi GPIO library
 from time import sleep   # Imports sleep (aka wait or pause) into the program
 import camoServo
-
-GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
+# GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
 
 
 
@@ -58,12 +57,12 @@ servo_signal_pin_L = 33
 # GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
 # Set up pin 11 for PWM
 
-GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
-GPIO.setwarnings(True)
-GPIO.setup(servo_signal_pin_R,GPIO.OUT)  # Sets up pin 32 to an output (instead of an input)
-GPIO.setup(servo_signal_pin_L,GPIO.OUT)  # Sets up pin 33 to an output (instead of an input)
-p_32 = GPIO.PWM(servo_signal_pin_R, 50)     # Sets up pin 32 as a PWM pin
-p_33 = GPIO.PWM(servo_signal_pin_L, 50)     # Sets up pin 33 as a PWM pin
+#GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
+#GPIO.setwarnings(True)
+#GPIO.setup(servo_signal_pin_R,GPIO.OUT)  # Sets up pin 32 to an output (instead of an input)
+#GPIO.setup(servo_signal_pin_L,GPIO.OUT)  # Sets up pin 33 to an output (instead of an input)
+#p_32 = GPIO.PWM(servo_signal_pin_R, 50)     # Sets up pin 32 as a PWM pin
+#p_33 = GPIO.PWM(servo_signal_pin_L, 50)     # Sets up pin 33 as a PWM pin
 
 # Max degrees
 MIN_DEGREE = 7
@@ -172,6 +171,10 @@ def record_av_ffmpeg(duration_seconds=33, output_dir=RECORDINGS_PATH, camera_ind
 def execute_matched_pattern(pattern_id, stream, p):
     print('In execute_matched_pattern , for pattern n°', pattern_id)
     # sleep 3 ; xset dpms force off
+    
+    blink_thread = threading.Thread(target=camoServo.blinkByHour, args=(None,))
+    blink_thread.start()
+    blink_thread.join()
     stream.stop_stream()
     stream.close()
     p.terminate()
@@ -306,33 +309,10 @@ def deg_to_duty(deg):
 
 def jiggleServo():
     print('jiggleServo with dutyCycle32 : ', dutyCycle32, ' and dutyCycle33 : ', dutyCycle33)
-        
-    global p_32
-    global p_33
-    
-    p_32.start(0)               # Starts running PWM on the pin and sets it to 0
-    p_33.start(0)               # Starts running PWM on the pin and sets it to 0
-    time.sleep(0.3)
-    p_33.ChangeDutyCycle(dutyCycle33)
-    time.sleep(0.1)
-    p_32.ChangeDutyCycle(dutyCycle32)
-    time.sleep(0.1)
-    # dutyCycle1$
-    p_33.ChangeDutyCycle(dutyCycle33+jiggleDelta)
-    time.sleep(0.1)
-    # dutyCycle1
-    p_32.ChangeDutyCycle(dutyCycle32-jiggleDelta)
-    time.sleep(0.1)
-    
-    p_33.ChangeDutyCycle(dutyCycle33)
-    time.sleep(0.1)
-    p_32.ChangeDutyCycle(dutyCycle32)
-    time.sleep(0.3)
-    p_32.stop()                   # At the end of the program, stop the PWM
-    p_33.stop()  
+    camoServo.jiggleServo()
     
     
-def moveServo(start=True, servoList = [], minAngleInput = MIN_DEGREE, maxAngleInput = MAX_DEGREE):
+def moveServo_old(start=True, servoList = [], minAngleInput = MIN_DEGREE, maxAngleInput = MAX_DEGREE):
 
     # Past degrees (not in a CV way ^^)
     global p_32
@@ -445,7 +425,7 @@ def moveServo(start=True, servoList = [], minAngleInput = MIN_DEGREE, maxAngleIn
 
     # extra
 
-def moveServoThread(VIDEO_DURATION):
+def moveServoThread_old(VIDEO_DURATION):
     p_32.start(0)               # Starts running PWM on the pin and sets it to 0
     p_33.start(0)               # Starts running PWM on the pin and sets it to 0
     time.sleep(0.3)
@@ -484,10 +464,11 @@ def cleanServo():
     # Clean up everything
     # p_32.stop()                 # At the end of the program, stop the PWM
     # p_33.stop()                 # At the end of the program, stop the PWM
-    GPIO.cleanup()           # Resets the GPIO pins back to defaults
+    # GPIO.cleanup()           # Resets the GPIO pins back to defaults
+    camoServo.clean()
     print(" Servos have been cleaned")
     return None
 
 if __name__ == '__main__':
-    cleanServo()
+    #cleanServo()
     detect_whistle()
