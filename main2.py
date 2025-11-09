@@ -14,6 +14,9 @@ from pathlib import Path
 from time import sleep   # Imports sleep (aka wait or pause) into the program
 import servoCamo
 import camoLight
+
+import subprocess
+
 # GPIO.setmode(GPIO.BOARD) # Sets the pin numbering system to use the physical layout
 
 # os.environ["PYTHONWARNINGS"] = "ignore"  # try to ignore ALSA warnings
@@ -107,7 +110,6 @@ def save_wav(filename, frames):
     wf.writeframes(b''.join(frames))
     wf.close()
 
-import subprocess
 
 def record_whistle_video(duration=VIDEO_DURATION, output_dir=RECORDINGS_PATH):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
